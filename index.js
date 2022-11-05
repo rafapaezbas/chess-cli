@@ -2,9 +2,6 @@ const { EOL } = require('os')
 const chessRules = require('chess-rules')
 const keypress = require('keypress')
 
-const cursorPos = [0, 0]
-let frame = 0
-
 const pieces = []
 pieces.P = '♟ '
 pieces.N = '♞ '
@@ -21,8 +18,16 @@ const white = '47'
 const blue = '36'
 const pink = '35'
 
+// state
+
+const cursorPos = [0, 0]
+let moveSrc = null
+let moveDst = null
+let position = chessRules.getInitialPosition()
+let log = ''
+
 const positionToAscii = (position) => {
-  let render = ''
+  let lines = ''
   for (let i = 7; i >= 0; i--) {
     let line = ''
     for (let j = 7; j >= 0; j--) {
@@ -32,10 +37,31 @@ const positionToAscii = (position) => {
       const ascii = !square ? '  ' : pieces[square.type]
       line = `\x1B[${background};${foreground}m${ascii}\x1B[39;49m` + line
     }
-    render += line
-    render += EOL
+    lines += line + EOL
   }
-  return render
+  return lines
+}
+
+const onPressedReturn = () => {
+  if (moveSrc === null) {
+    moveSrc = cursorPos[0] * 8 + cursorPos[1]
+  } else if (moveDst === null) {
+    moveDst = cursorPos[0] * 8 + cursorPos[1]
+    const move = { src: moveSrc, dst: moveDst }
+    if (moveIsLegal(move)) {
+      log = chessRules.moveToPgn(position, move)
+      position = chessRules.applyMove(position, move)
+    } else {
+      log = 'ilegal move'
+    }
+    moveSrc = null
+    moveDst = null
+  }
+}
+
+const moveIsLegal = (move) => {
+  const moves = chessRules.getAvailableMoves(position)
+  return moves.find(e => e.src === move.src && e.dst === move.dst)
 }
 
 // cursor control
@@ -59,14 +85,15 @@ process.stdin.on('keypress', function (ch, key) {
     cursorPos[1]--
     if (cursorPos[1] === -1) cursorPos[1] = 7
   }
+  if (key.name === 'return') {
+    onPressedReturn()
+  }
 })
 
 // game loop
 
 setInterval(() => {
   console.clear()
-  console.log(positionToAscii(chessRules.getInitialPosition()))
-  console.log('frame: ', frame++)
-  console.log('cursorX:', cursorPos[0])
-  console.log('cursorY:', cursorPos[1])
-}, 50)
+  console.log(positionToAscii(position))
+  console.log('log:', log)
+}, 75)
