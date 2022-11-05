@@ -22,16 +22,17 @@ const blue = '36'
 const pink = '35'
 
 const positionToAscii = (position) => {
-  position.board.reverse() // renders black on top
   let render = ''
-  for (let i = 0; i < 8; i++) {
-    for (let j = 0; j < 8; j++) {
+  for (let i = 7; i >= 0; i--) {
+    let line = ''
+    for (let j = 7; j >= 0; j--) {
       const square = position.board[(i * 8) + j]
-      const background = (i === cursorPos[1] && j === cursorPos[0]) ? cursorColor : (i % 2 === 0 && j % 2 === 0) || (i % 2 !== 0 && j % 2 !== 0) ? white : black
+      const background = (i === cursorPos[0] && j === cursorPos[1]) ? cursorColor : (i % 2 === 0 && j % 2 === 0) || (i % 2 !== 0 && j % 2 !== 0) ? black : white
       const foreground = !square ? background : square.side === 'W' ? blue : pink
       const ascii = !square ? '  ' : pieces[square.type]
-      render += `\x1B[${background};${foreground}m${ascii}\x1B[39;49m`
+      line = `\x1B[${background};${foreground}m${ascii}\x1B[39;49m` + line
     }
+    render += line
     render += EOL
   }
   return render
@@ -44,17 +45,17 @@ process.stdin.setRawMode(true)
 process.stdin.resume()
 
 process.stdin.on('keypress', function (ch, key) {
-  if (key.name === 'right') {
+  if (key.name === 'up') {
     cursorPos[0] = (cursorPos[0] + 1) % 8
   }
-  if (key.name === 'down') {
+  if (key.name === 'right') {
     cursorPos[1] = (cursorPos[1] + 1) % 8
   }
-  if (key.name === 'left') {
+  if (key.name === 'down') {
     cursorPos[0]--
     if (cursorPos[0] === -1) cursorPos[0] = 7
   }
-  if (key.name === 'up') {
+  if (key.name === 'left') {
     cursorPos[1]--
     if (cursorPos[1] === -1) cursorPos[1] = 7
   }
