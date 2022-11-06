@@ -1,5 +1,5 @@
 {
-  "name": "chess",
+  "name": "@rafapaezbas/chess-cli",
   "version": "1.0.0",
   "description": "Javascript chess cli.",
   "bin": {
