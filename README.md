@@ -42,11 +42,3 @@ chess.getPosition({ src:12, dst:28 }) // e4
 const isLegal = chess.moveIsLegal({ src:12, dst:28 }) // true
 ```
 
-### start()
-
-Starts key controls and rules of movements to cursor control.
-
-```
-chess.start()
-```
-
