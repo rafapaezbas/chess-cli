@@ -15,3 +15,38 @@ chess-cli
 
 Control the cursor with arrows. Select piece with `return` key.
 
+## Api
+
+```
+const Chess = require('@rafapaezbas/chess-cli')
+const chess = new Chess()
+```
+
+### getPosition(fen = false)
+
+```
+const jsonPosition = chess.getPosition()
+const fenPosition = chess.getPosition(true)
+```
+
+### move({ src, dst })
+
+```
+chess.getPosition({ src:12, dst:28 }) // e4
+```
+
+### moveIsLegal({ src, dst })
+
+```
+// inital position
+const isLegal = chess.moveIsLegal({ src:12, dst:28 }) // true
+```
+
+### start()
+
+Starts key controls and rules of movements to cursor control.
+
+```
+chess.start()
+```
+

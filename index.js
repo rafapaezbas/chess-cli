@@ -25,11 +25,9 @@ module.exports = class Chess {
     this.moveDst = null
     this.position = chessRules.getInitialPosition()
     this.log = ''
+  }
 
-    keypress(process.stdin)
-    process.stdin.setRawMode(true)
-    process.stdin.resume()
-
+  start () {
     process.stdin.on('keypress', (_, key) => {
       if (key.name === 'up') {
         this.cursorPos[0] = ++this.cursorPos[0] % 8
@@ -46,10 +44,33 @@ module.exports = class Chess {
       if (key.name === 'return') {
         this._onPressedReturn()
       }
-      this._render()
+      this.render()
     })
 
-    this._render() // initial render
+    keypress(process.stdin)
+    process.stdin.setRawMode(true)
+    process.stdin.resume()
+
+    this.render() // initial render
+  }
+
+  render () {
+    console.clear()
+    console.log(this._positionToAscii(this.position))
+    console.log('log:', this.log)
+  }
+
+  moveIsLegal (move) {
+    const moves = chessRules.getAvailableMoves(this.position)
+    return !!moves.find(e => e.src === move.src && e.dst === move.dst)
+  }
+
+  getPosition (fen = false) {
+    return fen ? chessRules.positionToFen(this.position) : this.position
+  }
+
+  move (src, dst) {
+    this.position = chessRules.applyMove(this.position, {src, dst})
   }
 
   _positionToAscii (position) {
@@ -74,7 +95,7 @@ module.exports = class Chess {
     } else {
       this.moveDst = this._getCursorPos()
       const move = { src: this.moveSrc, dst: this.moveDst }
-      if (this._moveIsLegal(move)) {
+      if (this.moveIsLegal(move)) {
         this.log = chessRules.moveToPgn(this.position, move)
         this.position = chessRules.applyMove(this.position, move)
       } else {
@@ -85,18 +106,7 @@ module.exports = class Chess {
     }
   }
 
-  _moveIsLegal (move) {
-    const moves = chessRules.getAvailableMoves(this.position)
-    return moves.find(e => e.src === move.src && e.dst === move.dst)
-  }
-
   _getCursorPos () {
     return this.cursorPos[0] * 8 + this.cursorPos[1]
-  }
-
-  _render () {
-    console.clear()
-    console.log(this._positionToAscii(this.position))
-    console.log('log:', this.log)
   }
 }
