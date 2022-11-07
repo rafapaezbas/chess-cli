@@ -1,3 +1,4 @@
+const { EOL } = require('os')
 const chessRules = require('chess-rules')
 const keypress = require('keypress')
 const Chess = require('../chess.js')
@@ -6,6 +7,10 @@ const ChessCli = require('../chess-cli.js')
 const chess = new Chess()
 const chessCli = new ChessCli()
 const cursorPos = [0, 0]
+
+const topPadding = 1
+const leftPadding = 2
+const padding = ' '
 
 let log = ''
 let moveSrc = null
@@ -32,13 +37,14 @@ process.stdin.on('keypress', (_, key) => {
   if (key.name === 'return') {
     onPressedReturn()
   }
-
   render()
 })
 
 function render () {
   console.clear()
-  console.log(chessCli.positionToAscii(chess.getPosition(true), cursorPos))
+  const position = positionAndPadding()
+  for (let i = 0; i < topPadding; i++) console.log('')
+  console.log(position)
   console.log('log:', log)
 }
 
@@ -57,4 +63,9 @@ function onPressedReturn () {
     moveSrc = null
     moveDst = null
   }
+}
+
+function positionAndPadding () {
+  return chessCli.positionToAscii(chess.getPosition(true), cursorPos)
+    .split(EOL).map(e => padding.repeat(leftPadding) + e).join(EOL)
 }
