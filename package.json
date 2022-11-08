@@ -14,8 +14,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "b4a": "^1.6.1",
     "chess-rules": "^1.1.0",
-    "keypress": "^0.2.1"
+    "hypercore": "^10.4.1",
+    "hypercore-crypto": "^3.3.0",
+    "keypress": "^0.2.1",
+    "random-access-memory": "^6.0.0"
   },
   "devDependencies": {
     "brittle": "^3.1.1",
