@@ -169,7 +169,7 @@ class HyperChess extends EventEmitter {
 
     this.batch = null
 
-    this.emit('update', chessRules.moveToPgn(player.chess.position, move))
+    this.emit('update', chessRules.moveToPgn(this.chess.position, move))
     // return commit
   }
 }
