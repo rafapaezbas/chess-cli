@@ -1,5 +1,5 @@
 const test = require('brittle')
-const Chess = require('..')
+const { Chess } = require('../chess.js')
 
 test('should get fen positon', ({ is }) => {
   const chess = new Chess()
@@ -21,4 +21,19 @@ test('ilegal move', ({ is, not }) => {
   const moveB = chess.moveIsLegal({ src: 12, dst: 28 })
   is(moveA, false)
   is(moveB, true)
+})
+
+test('Scholars mate', ({ is, ok }) => {
+  const chess = new Chess()
+  chess.move({ src: 12, dst: 28 }) // e4 e5
+  chess.move({ src: 52, dst: 36 })
+  chess.move({ src: 3, dst: 39 }) // Qh5 Nc6
+  chess.move({ src: 57, dst: 42 })
+  chess.move({ src: 5, dst: 26 }) // Bc4 Nf6??
+  chess.move({ src: 62, dst: 45 })
+  chess.move({ src: 39, dst: 53 }) // Qxf7#
+
+  ok(chess.inCheck())
+  is(chess.availableMoves().length, 0)
+  is(chess.status(), 'WHITEWON')
 })

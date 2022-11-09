@@ -1,7 +1,7 @@
 const { EOL } = require('os')
 const chessRules = require('chess-rules')
 const keypress = require('keypress')
-const Chess = require('../chess.js')
+const { Chess } = require('../chess.js')
 const ChessCli = require('../chess-cli.js')
 
 const chess = new Chess()

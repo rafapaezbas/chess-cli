@@ -132,7 +132,11 @@ class Chess {
   }
 
   status () {
-    return chessRules.getGameStatus() // OPEN, PAT, WHITEWON, BLACKWON
+    return chessRules.getGameStatus(this.position) // OPEN, PAT, WHITEWON, BLACKWON
+  }
+
+  availableMoves () {
+    return chessRules.getAvailableMoves(this.position)
   }
 }
 
