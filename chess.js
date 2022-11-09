@@ -59,7 +59,6 @@ class State {
       valueEncoding: 'json',
       auth: this.auth
     })
-    this.batch = null
   }
 
   ready () {
@@ -67,9 +66,9 @@ class State {
   }
 
   signable (data) {
-    if (!this.batch) this.batch = this.core.core.tree.batch()
-    this.batch.append(this.core._encode(this.core.valueEncoding, data))
-    const signable = this.batch.signable()
+    const batch = this.core.core.tree.batch()
+    batch.append(this.core._encode(this.core.valueEncoding, data))
+    const signable = batch.signable()
     return signable
   }
 
