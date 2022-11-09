@@ -1,132 +1,27 @@
 const crypto = require('hypercore-crypto')
-const RAM = require('random-access-memory')
-const Hypercore = require('hypercore')
 const chessRules = require('chess-rules')
-const b4a = require('b4a')
 
-class MultiSigAuth {
-  constructor (local, remote, opts = {}) {
-    this.local = local
-    this.remote = remote
-
-    this._sign = opts.sign
-      ? opts.sign
-      : s => crypto.sign(s, opts.keyPair.secretKey)
-
-    this.sigs = []
-
-    this.localFirst = b4a.compare(this.local, this.remote) < 0
-  }
-
-  sign (signable) {
-    const remote = this.sigs.find((signature) => {
-      return crypto.verify(signable, signature, this.remote)
-    })
-
-    if (!remote) throw new Error('No remote signature.')
-
-    const local = this._sign(signable)
-
-    const sigs = []
-    sigs.push(this.localFirst ? local : remote)
-    sigs.push(this.localFirst ? remote : local)
-
-    return b4a.concat(sigs)
-  }
-
-  verify (signable, signature) {
-    const sig1 = signature.subarray(0, 64)
-    const sig2 = signature.subarray(64)
-
-    const key1 = this.localFirst ? this.local : this.remote
-    const key2 = this.localFirst ? this.remote : this.local
-
-    return crypto.verify(signable, sig1, key1) &&
-        crypto.verify(signable, sig2, key2)
-  }
-
-  addSignature (m) {
-    this.sigs.push(m)
-  }
-}
-
-class State {
-  constructor (local, remote, opts = {}) {
-    this.local = local
-    this.remote = remote
-    this.auth = new MultiSigAuth(local.publicKey, remote, { keyPair: local })
-    this.core = new Hypercore(RAM, null, {
-      valueEncoding: 'json',
-      auth: this.auth
-    })
-  }
-
-  ready () {
-    return this.core.ready()
-  }
-
-  signable (data) {
-    if (!Array.isArray(data)) return this.signable([data])
-
-    const batch = this.core.core.tree.batch()
-    for (const pos of data) {
-      batch.append(this.core._encode(this.core.valueEncoding, pos))
-    }
-
-    return batch.signable()
-  }
-
-  commit (data) {
-    return crypto.sign(this.signable(data), this.local.secretKey)
-  }
-
-  async verify (data, signature) {
-    const signable = this.signable(data)
-
-    if (!crypto.verify(signable, signature, this.remote)) {
-      throw new Error('Bad commit')
-    }
-
-    this.auth.addSignature(signature)
-    await this.core.append(data)
-
-    return crypto.sign(signable, this.local.secretKey)
-  }
-}
-
-class HyperChess {
+class Channel {
   constructor (local, remote) {
-    this.chess = new Chess()
-    this.state = new State(local, remote)
-    this.pending = []
+    this.local = local
+    this.remote = remote
+    this.init = Buffer.compare(local.key, remote.key) > 0
+    this.state = this.init ? 'IDLE' : 'WAITING'
+
+    this.remote.on('append', async () => {
+      const data = await this.remote.get(this.remote.length - 1)
+      if (crypto.verify(Buffer.from(data.data), Buffer.from(data.signature, 'hex'), this.local.key)) return
+      if (!crypto.verify(Buffer.from(data.data), Buffer.from(data.signature, 'hex'), this.remote.key)) throw new Error('Not verified')
+      await this.local.append(data)
+      this.state = 'IDLE'
+    })
   }
 
-  ready () {
-    return this.state.ready()
-  }
-
-  move (move) {
-    if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal local move')
-
-    const newPosition = this.chess.move(move)
-    this.pending.push(newPosition)
-
-    const signature = this.state.commit(newPosition)
-
-    return { move, signature }
-  }
-
-  async remoteMove ({ move, signature }) {
-    if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal remote move')
-
-    const newPosition = this.chess.move(move)
-    this.pending.push(newPosition)
-
-    const commit = this.state.verify(this.pending, signature)
-
-    this.pending = []
-
-    return commit
+  async push (data) {
+    if (this.state !== 'IDLE') throw new Error('Waiting for ack')
+    const signature = crypto.sign(Buffer.from(JSON.stringify(data)), this.local.keyPair.secretKey)
+    await this.local.append({ signature: signature.toString('hex'), data: JSON.stringify(data) })
+    this.state = 'WAITING'
   }
 }
 
@@ -163,6 +58,6 @@ class Chess {
 }
 
 module.exports = {
-  HyperChess,
+  Channel,
   Chess
 }
