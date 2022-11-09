@@ -66,20 +66,30 @@ class State {
   }
 
   signable (data) {
+    if (!Array.isArray(data)) return this.signable([data])
+
     const batch = this.core.core.tree.batch()
-    batch.append(this.core._encode(this.core.valueEncoding, data))
-    const signable = batch.signable()
-    return signable
+    for (const pos of data) {
+      batch.append(this.core._encode(this.core.valueEncoding, pos))
+    }
+
+    return batch.signable()
   }
 
   commit (data) {
     return crypto.sign(this.signable(data), this.local.secretKey)
   }
 
-  verify (data, signature) {
+  async verify (data, signature) {
     const signable = this.signable(data)
-    if (!crypto.verify(signable, signature, this.remote)) throw new Error('Bad commit')
+
+    if (!crypto.verify(signable, signature, this.remote)) {
+      throw new Error('Bad commit')
+    }
+
     this.auth.addSignature(signature)
+    await this.core.append(data)
+
     return crypto.sign(signable, this.local.secretKey)
   }
 }
@@ -88,6 +98,7 @@ class HyperChess {
   constructor (local, remote) {
     this.chess = new Chess()
     this.state = new State(local, remote)
+    this.pending = []
   }
 
   ready () {
@@ -96,15 +107,26 @@ class HyperChess {
 
   move (move) {
     if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal local move')
+
     const newPosition = this.chess.move(move)
+    this.pending.push(newPosition)
+
     const signature = this.state.commit(newPosition)
+
     return { move, signature }
   }
 
-  remoteMove ({ move, signature }) {
+  async remoteMove ({ move, signature }) {
     if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal remote move')
+
     const newPosition = this.chess.move(move)
-    return this.state.verify(newPosition, signature)
+    this.pending.push(newPosition)
+
+    const commit = this.state.verify(this.pending, signature)
+
+    this.pending = []
+
+    return commit
   }
 }
 
