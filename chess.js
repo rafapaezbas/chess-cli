@@ -115,7 +115,7 @@ class HyperChess extends EventEmitter {
 
     this.swarm = new Hyperswarm(opts)
     this.swarm.on('connection', conn => {
-      console.log('Peer' + this.channel.remote.key.slice(0, 6).toString('hex') + 'joined, let the game begin!')
+      console.log('Peer ' + this.channel.remote.key.slice(0, 4).toString('hex') + ' joined, let the game begin!')
       this.store.replicate(conn, { live: true })
     })
 
@@ -164,14 +164,13 @@ class HyperChess extends EventEmitter {
   async confirmMove (move) {
     if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal remote move')
 
+    const oldPosition = { ...this.chess.position }
     const newPosition = this.chess.move(move)
     // const commit = this.state.verify(this.pending, signature)
 
     this.batch = null
 
-    if (!move) return
-
-    this.emit('update', chessRules.moveToPgn(this.chess.position, move))
+    this.emit('update', chessRules.moveToPgn(oldPosition, move))
     // return commit
   }
 }
