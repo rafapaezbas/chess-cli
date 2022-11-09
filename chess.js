@@ -143,10 +143,11 @@ class HyperChess extends EventEmitter {
     this.channel = new Autochannel(local, remote)
     this.channel.on('data', move => this.confirmMove(move))
 
+    console.log(this.channel.isInitiator)
+    this.firstToPlay = this.channel.isInitiator
+
     this.swarm.join(local.discoveryKey)
     this.swarm.join(remote.discoveryKey)
-
-    this.firstToPlay = this.channel.isInitiator
   }
 
   move (move) {

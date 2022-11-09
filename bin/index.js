@@ -52,7 +52,7 @@ process.stdin.once('data', async data => {
   })
 
   function render () {
-    console.clear()
+    // console.clear()
 
     console.log(player.local.publicKey.toString('hex') + ':' + player.channelKey.publicKey.toString('hex'))
 
