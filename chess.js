@@ -126,6 +126,14 @@ class Chess {
     this.position = chessRules.applyMove(this.position, { src, dst })
     return this.getPosition(true)
   }
+
+  inCheck () {
+    return this.position.check
+  }
+
+  status () {
+    return chessRules.getGameStatus() // OPEN, PAT, WHITEWON, BLACKWON
+  }
 }
 
 module.exports = {
