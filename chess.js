@@ -115,7 +115,7 @@ class HyperChess extends EventEmitter {
 
     this.swarm = new Hyperswarm(opts)
     this.swarm.on('connection', conn => {
-      console.log('connection!!!')
+      console.log('Peer' + this.channel.remote.key.slice(0, 6).toString('hex') + 'joined, let the game begin!')
       this.store.replicate(conn, { live: true })
     })
 
@@ -169,7 +169,7 @@ class HyperChess extends EventEmitter {
 
     this.batch = null
 
-    this.emit('update')
+    this.emit('update', chessRules.moveToPgn(player.chess.position, move))
     // return commit
   }
 }

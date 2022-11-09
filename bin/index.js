@@ -27,7 +27,10 @@ process.stdin.once('data', async data => {
   process.stdin.resume()
   render()
 
-  player.on('update', render)
+  player.on('update', move => {
+    log = 'Peer played: ' + move
+    render()
+  })
 
   process.stdin.on('keypress', (_, key) => {
     if (key.name === 'up') {
@@ -54,8 +57,6 @@ process.stdin.once('data', async data => {
   function render () {
     console.clear()
 
-    console.log(player.local.publicKey.toString('hex') + ':' + player.channelKey.publicKey.toString('hex'))
-
     console.log('Playing as', player.firstToPlay ? 'white' : 'black')
 
     const position = positionAndPadding()
@@ -70,7 +71,7 @@ process.stdin.once('data', async data => {
     } else {
       moveDst = cursorPos[0] * 8 + cursorPos[1]
       const move = { src: moveSrc, dst: moveDst }
-      log = chessRules.moveToPgn(player.chess.position, move)
+      log = 'We played: ' + chessRules.moveToPgn(player.chess.position, move)
 
       player.move(move)
 
