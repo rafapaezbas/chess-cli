@@ -14,10 +14,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "autochannel": "github:chm-diederichs/autochannel",
     "b4a": "^1.6.1",
     "chess-rules": "^1.1.0",
+    "corestore": "^6.2.0",
     "hypercore": "^10.4.1",
     "hypercore-crypto": "^3.3.0",
+    "hyperswarm": "^4.3.5",
     "keypress": "^0.2.1",
     "random-access-memory": "^6.0.0"
   },

@@ -1,17 +1,23 @@
+const { EventEmitter } = require('events')
 const crypto = require('hypercore-crypto')
 const RAM = require('random-access-memory')
 const Hypercore = require('hypercore')
+const Hyperswarm = require('hyperswarm')
+const Corestore = require('corestore')
+const Autochannel = require('autochannel')
 const chessRules = require('chess-rules')
 const b4a = require('b4a')
 
 class MultiSigAuth {
   constructor (local, remote, opts = {}) {
-    this.local = local
+    this.keyPair = local?.publicKey ? local : opts.keyPair
+
+    this.local = local?.publicKey || local
     this.remote = remote
 
     this._sign = opts.sign
       ? opts.sign
-      : s => crypto.sign(s, opts.keyPair.secretKey)
+      : s => crypto.sign(s, this.keyPair.secretKey)
 
     this.sigs = []
 
@@ -54,7 +60,7 @@ class State {
   constructor (local, remote, opts = {}) {
     this.local = local
     this.remote = remote
-    this.auth = new MultiSigAuth(local.publicKey, remote, { keyPair: local })
+    this.auth = new MultiSigAuth(local, remote)
     this.core = new Hypercore(RAM, null, {
       valueEncoding: 'json',
       auth: this.auth
@@ -94,50 +100,93 @@ class State {
   }
 }
 
-class HyperChess {
-  constructor (local, remote) {
+class HyperChess extends EventEmitter {
+  constructor (opts = {}) {
+    super()
+
+    this.local = crypto.keyPair()
+
     this.chess = new Chess()
-    this.state = new State(local, remote)
+    this.store = new Corestore(RAM)
     this.pending = []
+
+    this.channelKey = crypto.keyPair()
+    this.channel = null
+
+    this.swarm = new Hyperswarm(opts)
+    this.swarm.on('connection', conn => {
+      console.log('connection!!!')
+      this.store.replicate(conn, { live: true })
+    })
+
+    this.firstToPlay = false
+    this.batch = null
   }
 
   ready () {
     return this.state.ready()
   }
 
+  getPosition (fen) {
+    return this.batch !== null ? this.batch.getPosition(fen) : this.chess.getPosition(fen)
+  }
+
+  async joinGame (remoteKey, remoteChannelKey) {
+    this.state = new State(this.local, remoteKey)
+
+    const local = this.store.get({ keyPair: this.channelKey, valueEncoding: 'json' })
+    const remote = this.store.get({ key: remoteChannelKey, valueEncoding: 'json' })
+
+    await local.ready()
+    await remote.ready()
+
+    this.channel = new Autochannel(local, remote)
+    this.channel.on('data', move => this.confirmMove(move))
+
+    this.swarm.join(local.discoveryKey)
+    this.swarm.join(remote.discoveryKey)
+
+    this.firstToPlay = this.channel.isInitiator
+  }
+
   move (move) {
     if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal local move')
 
-    const newPosition = this.chess.move(move)
-    this.pending.push(newPosition)
+    this.batch = this.chess.batch()
 
-    const signature = this.state.commit(newPosition)
+    const newPosition = this.batch.move(move)
+    // const signature = this.state.commit(newPosition)
 
-    return { move, signature }
+    this.channel.append(move)
+    return move
   }
 
-  async remoteMove ({ move, signature }) {
+  async confirmMove (move) {
     if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal remote move')
 
     const newPosition = this.chess.move(move)
-    this.pending.push(newPosition)
+    // const commit = this.state.verify(this.pending, signature)
 
-    const commit = this.state.verify(this.pending, signature)
+    this.batch = null
 
-    this.pending = []
-
-    return commit
+    this.emit('update')
+    // return commit
   }
 }
 
 class Chess {
-  constructor () {
-    this.position = chessRules.getInitialPosition()
+  constructor (position = chessRules.getInitialPosition(), parent = null) {
+    this.position = position
+    this.parent = parent
   }
 
   moveIsLegal (move) {
     const moves = chessRules.getAvailableMoves(this.position)
     return !!moves.find(e => e.src === move.src && e.dst === move.dst)
+  }
+
+  batch () {
+    return new Chess(this.position, this)
   }
 
   getPosition (fen = false) {

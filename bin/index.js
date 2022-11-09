@@ -1,71 +1,86 @@
 const { EOL } = require('os')
 const chessRules = require('chess-rules')
 const keypress = require('keypress')
-const { Chess } = require('../chess.js')
+const { HyperChess } = require('../chess.js')
 const ChessCli = require('../chess-cli.js')
 
-const chess = new Chess()
-const chessCli = new ChessCli()
-const cursorPos = [0, 0]
+const player = new HyperChess()
 
-const topPadding = 1
-const leftPadding = 2
-const padding = ' '
+console.log(player.local.publicKey.toString('hex') + ':' + player.channelKey.publicKey.toString('hex'))
 
-let log = ''
-let moveSrc = null
-let moveDst = null
+process.stdin.once('data', async data => {
+  await player.joinGame(...data.toString().trim().split(':').map(b => Buffer.from(b, 'hex')))
 
-keypress(process.stdin)
-process.stdin.setRawMode(true)
-process.stdin.resume()
-render()
+  const chessCli = new ChessCli()
+  const cursorPos = [0, 0]
 
-process.stdin.on('keypress', (_, key) => {
-  if (key.name === 'up') {
-    cursorPos[0] = ++cursorPos[0] % 8
-  }
-  if (key.name === 'right') {
-    cursorPos[1] = ++cursorPos[1] % 8
-  }
-  if (key.name === 'down') {
-    cursorPos[0] = --cursorPos[0] % 8 & 7
-  }
-  if (key.name === 'left') {
-    cursorPos[1] = --cursorPos[1] % 8 & 7
-  }
-  if (key.name === 'return') {
-    onPressedReturn()
-  }
+  const topPadding = 1
+  const leftPadding = 2
+  const padding = ' '
+
+  let log = ''
+  let moveSrc = null
+  let moveDst = null
+
+  keypress(process.stdin)
+  process.stdin.setRawMode(true)
+  process.stdin.resume()
   render()
-})
 
-function render () {
-  console.clear()
-  const position = positionAndPadding()
-  for (let i = 0; i < topPadding; i++) console.log('')
-  console.log(position)
-  console.log('log:', log)
-}
+  player.on('update', render)
 
-function onPressedReturn () {
-  if (moveSrc === null) {
-    moveSrc = cursorPos[0] * 8 + cursorPos[1]
-  } else {
-    moveDst = cursorPos[0] * 8 + cursorPos[1]
-    const move = { src: moveSrc, dst: moveDst }
-    if (chess.moveIsLegal(move)) {
-      log = chessRules.moveToPgn(chess.position, move)
-      chess.move(move)
-    } else {
-      log = 'ilegal move'
+  process.stdin.on('keypress', (_, key) => {
+    if (key.name === 'up') {
+      cursorPos[0] = ++cursorPos[0] % 8
     }
-    moveSrc = null
-    moveDst = null
-  }
-}
+    if (key.name === 'right') {
+      cursorPos[1] = ++cursorPos[1] % 8
+    }
+    if (key.name === 'down') {
+      cursorPos[0] = --cursorPos[0] % 8 & 7
+    }
+    if (key.name === 'left') {
+      cursorPos[1] = --cursorPos[1] % 8 & 7
+    }
+    if (key.name === 'return') {
+      onPressedReturn()
+    }
+    if (key.name === 'q') {
+      process.exit(0)
+    }
+    render()
+  })
 
-function positionAndPadding () {
-  return chessCli.positionToAscii(chess.getPosition(true), cursorPos)
-    .split(EOL).map(e => padding.repeat(leftPadding) + e).join(EOL)
-}
+  function render () {
+    console.clear()
+
+    console.log(player.local.publicKey.toString('hex') + ':' + player.channelKey.publicKey.toString('hex'))
+
+    console.log('Playing as', player.firstToPlay ? 'white' : 'black')
+
+    const position = positionAndPadding()
+    for (let i = 0; i < topPadding; i++) console.log('')
+    console.log(position)
+    console.log('log:', log)
+  }
+
+  function onPressedReturn () {
+    if (moveSrc === null) {
+      moveSrc = cursorPos[0] * 8 + cursorPos[1]
+    } else {
+      moveDst = cursorPos[0] * 8 + cursorPos[1]
+      const move = { src: moveSrc, dst: moveDst }
+      log = chessRules.moveToPgn(player.chess.position, move)
+
+      player.move(move)
+
+      moveSrc = null
+      moveDst = null
+    }
+  }
+
+  function positionAndPadding () {
+    return chessCli.positionToAscii(player.getPosition(true), cursorPos)
+      .split(EOL).map(e => padding.repeat(leftPadding) + e).join(EOL)
+  }
+})
