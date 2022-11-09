@@ -27,8 +27,11 @@ process.stdin.once('data', async data => {
   process.stdin.resume()
   render()
 
+  let count = 0
+
   player.on('update', move => {
-    log = 'Peer played: ' + move
+    console.log(player.firstToPlay)
+    log = (count++ & 1 ^ player.firstToPlay ? 'We' : 'Peer') + ' played: ' + move
     render()
   })
 
