@@ -41,7 +41,7 @@ function isCursorPos (i, j, cursor) {
 }
 
 function isBlackSquare (i, j) {
-  return (i % 2 === 0 && j % 2 === 0) || (i % 2 !== 0 && j % 2 !== 0)
+  return i % 2 === j % 2
 }
 
 function toAscii (background, foreground, ascii) {
