@@ -164,7 +164,7 @@ class HyperChess extends EventEmitter {
   async confirmMove (move) {
     if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal remote move')
 
-    const update = chessRules.moveToPgn(this.chess.position, move)
+    const update = chessRules.moveToPgn({ ...this.chess.position }, move)
     const newPosition = this.chess.move(move)
 
     // const commit = this.state.verify(this.pending, signature)
