@@ -1,8 +1,9 @@
-const { EOL } = require('os')
-const chessRules = require('chess-rules')
-const keypress = require('keypress')
-const { Chess } = require('../chess.js')
-const ChessCli = require('../chess-cli.js')
+import { EOL } from 'os'
+import chessRules from 'chess-rules'
+import keypress from 'keypress'
+import { Chess, HyperChess } from '../chess.js'
+import ChessCli from '../chess-cli.js'
+import crypto from 'hypercore-crypto'
 
 const chess = new Chess()
 const chessCli = new ChessCli()
@@ -15,6 +16,23 @@ const padding = ' '
 let log = ''
 let moveSrc = null
 let moveDst = null
+
+const keyPairFlag = process.argv[2] === '--keyPair'
+if (keyPairFlag) {
+  const keyPair = crypto.keyPair()
+  console.log('pk:', keyPair.publicKey.toString('hex'))
+  console.log('sk', keyPair.secretKey.toString('hex'))
+  process.exit(0)
+}
+
+const keys = process.argv[2].split(':')
+const localPk = keys[0]
+const localSk = keys[1]
+const remote = keys[2]
+const hyperChess = new HyperChess(chess, { publicKey: Buffer.from(localPk, 'hex'), secretKey: Buffer.from(localSk, 'hex') },
+  { publicKey: Buffer.from(remote, 'hex') })
+await hyperChess.ready()
+hyperChess.on('move', () => render())
 
 keypress(process.stdin)
 process.stdin.setRawMode(true)
@@ -37,6 +55,9 @@ process.stdin.on('keypress', (_, key) => {
   if (key.name === 'return') {
     onPressedReturn()
   }
+  if (key.name === 'q') {
+    process.exit(0)
+  }
   render()
 })
 
@@ -56,7 +77,7 @@ function onPressedReturn () {
     const move = { src: moveSrc, dst: moveDst }
     if (chess.moveIsLegal(move)) {
       log = chessRules.moveToPgn(chess.position, move)
-      chess.move(move)
+      hyperChess.move(move)
     } else {
       log = 'ilegal move'
     }
