@@ -176,23 +176,29 @@ class HyperChess extends EventEmitter {
   }
 
   async processBatch (blocks = []) {
-    let position = this.chess.getPosition(true)
     const batch = this.chess.batch()
+
     for (let i = 0; i < blocks.length; i++) {
-      if (blocks[i].op) {
-        const move = blocks[i].op
-        if (!batch.moveIsLegal(move)) throw new Error('Ilegal local move')
-        position = batch.move(move)
+      const { commitment, op } = blocks[i]
+      console.log(op)
+
+      if (op) {
+        if (!batch.moveIsLegal(op)) throw new Error('Ilegal local move')
+
+        const position = batch.move(op)
         const commitment = this.state.commit(position)
+
         await this.channel.append(null, commitment)
-        return commitment
       }
-      if (blocks[i].commitment && !this.channel.local.key.equals(blocks[i].core.key)) {
-        await this.state.verify(position, Buffer.from(blocks[i].commitment))
-        this.chess.position = batch.position
-        const commitment = this.state.commit(position)
-        await this.channel.append(null, commitment)
-        return commitment
+
+      if (commitment && !this.channel.local.key.equals(blocks[i].core.key)) {
+        const position = batch.getPosition(true)
+        if (position === this.chess.getPosition(true)) continue
+
+        const comm = await this.state.verify(position, Buffer.from(commitment))
+        this.chess.position = position
+
+        await this.channel.append(null, nextCommitment)
       }
     }
   }
