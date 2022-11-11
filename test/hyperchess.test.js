@@ -76,3 +76,25 @@ test('scholars mate', async t => {
   t.is(black.state.core.length, white.state.core.length)
   t.is(black.state.core.length, 7)
 })
+
+test('move and commit', async t => {
+  const a = keyPair()
+  const b = keyPair()
+
+  const white = new HyperChess(a, b.publicKey)
+  const black = new HyperChess(b, a.publicKey)
+
+  white.joinGame(black.local.publicKey, black.channelKey.publicKey)
+  black.joinGame(white.local.publicKey, white.channelKey.publicKey)
+
+  await white.ready()
+  await black.ready()
+
+  const initialPosition = white.getPosition(true)
+
+  const moves = [{ src: 12, dst: 28 }, { src: 52, dst: 36 }]
+  const commit = white.commit(moves)
+
+  t.is(white.getPosition(true), initialPosition)
+  t.ok(commit)
+})
