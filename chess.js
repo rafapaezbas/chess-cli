@@ -175,13 +175,13 @@ class HyperChess extends EventEmitter {
     // return commit
   }
 
-  commit (moves = []) {
+  processBatch (moves = []) {
     let position = this.chess.getPosition(true)
     const batch = this.chess.batch()
-    moves.forEach(m => {
-      if (!batch.moveIsLegal(m)) throw new Error('Ilegal local move')
-      position = batch.move(m)
-    })
+    for (let i = 0; i < moves.length; i++) {
+      if (!batch.moveIsLegal(moves[i])) throw new Error('Ilegal local move')
+      position = batch.move(moves[i])
+    }
     return this.state.commit(position)
   }
 }

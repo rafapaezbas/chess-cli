@@ -77,7 +77,7 @@ test('scholars mate', async t => {
   t.is(black.state.core.length, 7)
 })
 
-test('move and commit', async t => {
+test.solo('process batch', async t => {
   const a = keyPair()
   const b = keyPair()
 
@@ -93,7 +93,7 @@ test('move and commit', async t => {
   const initialPosition = white.getPosition(true)
 
   const moves = [{ src: 12, dst: 28 }, { src: 52, dst: 36 }]
-  const commit = white.commit(moves)
+  const commit = white.processBatch(moves)
 
   t.is(white.getPosition(true), initialPosition)
   t.ok(commit)
