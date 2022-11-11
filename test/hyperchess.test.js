@@ -84,17 +84,17 @@ test.solo('process batch', async t => {
   const white = new HyperChess(a, b.publicKey)
   const black = new HyperChess(b, a.publicKey)
 
-  white.joinGame(black.local.publicKey, black.channelKey.publicKey)
-  black.joinGame(white.local.publicKey, white.channelKey.publicKey)
+  await white.joinGame(black.local.publicKey, black.channelKey.publicKey)
+  await black.joinGame(white.local.publicKey, white.channelKey.publicKey)
 
   await white.ready()
   await black.ready()
 
   const initialPosition = white.getPosition(true)
 
-  const moves = [{ src: 12, dst: 28 }, { src: 52, dst: 36 }]
-  const commit = white.processBatch(moves)
+  const blocks = [{ op: { src: 12, dst: 28 } }, { op: { src: 52, dst: 36 } }, { commitment: Buffer.alloc(32) }]
+  const commit = white.processBatch(blocks)
 
-  t.is(white.getPosition(true), initialPosition)
+  t.not(white.getPosition(true), initialPosition)
   t.ok(commit)
 })

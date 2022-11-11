@@ -140,7 +140,7 @@ class HyperChess extends EventEmitter {
     await local.ready()
     await remote.ready()
 
-    this.channel = new Autochannel(local, remote)
+    this.channel = new Autochannel(local, remote, { onBatch: this.processBatch })
     this.channel.on('data', move => this.confirmMove(move))
 
     this.swarm.join(local.discoveryKey)
@@ -175,14 +175,24 @@ class HyperChess extends EventEmitter {
     // return commit
   }
 
-  processBatch (moves = []) {
+  processBatch (blocks) {
     let position = this.chess.getPosition(true)
     const batch = this.chess.batch()
-    for (let i = 0; i < moves.length; i++) {
-      if (!batch.moveIsLegal(moves[i])) throw new Error('Ilegal local move')
-      position = batch.move(moves[i])
+    for (let i = 0; i < blocks.length; i++) {
+      if (blocks[i].op) {
+        const move = blocks[i].op
+        if (!batch.moveIsLegal(move)) throw new Error('Ilegal local move')
+        position = batch.move(move)
+      }
+      if (blocks[i].commitment) {
+        this.chess.position = batch.position
+        const commitment = this.state.commit(position)
+        this.channel.append(null, commitment)
+      }
     }
-    return this.state.commit(position)
+    const commitment = this.state.commit(position)
+    this.channel.append(null, commitment)
+    return commitment
   }
 }
 
