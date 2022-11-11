@@ -116,3 +116,22 @@ test('bad commitment', async t => {
   const blocks = [{ op: { src: 12, dst: 28 } }, { op: { src: 52, dst: 36 } }, { commitment: Buffer.alloc(64) }]
   await t.exception(async () => await white.processBatch(blocks))
 })
+
+test.solo('2-of-2 game', async t => {
+  const a = keyPair()
+  const b = keyPair()
+
+  const white = new HyperChess(a, b.publicKey)
+  const black = new HyperChess(b, a.publicKey)
+
+  await white.joinGame(black.local.publicKey, black.channelKey.publicKey)
+  await black.joinGame(white.local.publicKey, white.channelKey.publicKey)
+
+  await white.ready()
+  await black.ready()
+
+  const e4 = { src: 12, dst: 28 }
+  const e5 = { src: 52, dst: 36 }
+
+  white.move(e4)
+})
