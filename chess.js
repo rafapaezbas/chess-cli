@@ -140,7 +140,7 @@ class HyperChess extends EventEmitter {
     await local.ready()
     await remote.ready()
 
-    this.channel = new Autochannel(local, remote, { onBatch: this.processBatch })
+    this.channel = new Autochannel(local, remote, { onBatch: this.processBatch.bind(this) })
     this.channel.on('data', move => this.confirmMove(move))
 
     this.swarm.join(local.discoveryKey)
@@ -183,17 +183,18 @@ class HyperChess extends EventEmitter {
         const move = blocks[i].op
         if (!batch.moveIsLegal(move)) throw new Error('Ilegal local move')
         position = batch.move(move)
+        const commitment = this.state.commit(position)
+        await this.channel.append(null, commitment)
+        return commitment
       }
-      if (blocks[i].commitment) {
-        await this.state.verify(position, blocks[i].commitment)
+      if (blocks[i].commitment && !this.channel.local.key.equals(blocks[i].core.key)) {
+        await this.state.verify(position, Buffer.from(blocks[i].commitment))
         this.chess.position = batch.position
         const commitment = this.state.commit(position)
-        this.channel.append(null, commitment)
+        await this.channel.append(null, commitment)
+        return commitment
       }
     }
-    const commitment = this.state.commit(position)
-    this.channel.append(null, commitment)
-    return commitment
   }
 }
 
