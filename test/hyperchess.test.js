@@ -90,11 +90,12 @@ test.solo('process batch', async t => {
   await white.ready()
   await black.ready()
 
-  const initialPosition = white.getPosition(true)
+  const initialPosition = black.getPosition(true)
+  const blocks = [{ op: { src: 12, dst: 28 } }, { op: { src: 52, dst: 36 } }]
 
-  const blocks = [{ op: { src: 12, dst: 28 } }, { op: { src: 52, dst: 36 } }, { commitment: Buffer.alloc(32) }]
-  const commit = white.processBatch(blocks)
+  const commitment = await white.processBatch(blocks)
+  blocks.push({ commitment })
 
-  t.not(white.getPosition(true), initialPosition)
-  t.ok(commit)
+  await black.processBatch(blocks)
+  t.not(black.getPosition(true), initialPosition)
 })

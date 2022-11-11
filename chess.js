@@ -175,7 +175,7 @@ class HyperChess extends EventEmitter {
     // return commit
   }
 
-  processBatch (blocks) {
+  async processBatch (blocks = []) {
     let position = this.chess.getPosition(true)
     const batch = this.chess.batch()
     for (let i = 0; i < blocks.length; i++) {
@@ -185,6 +185,7 @@ class HyperChess extends EventEmitter {
         position = batch.move(move)
       }
       if (blocks[i].commitment) {
+        await this.state.verify(position, blocks[i].commitment)
         this.chess.position = batch.position
         const commitment = this.state.commit(position)
         this.channel.append(null, commitment)
