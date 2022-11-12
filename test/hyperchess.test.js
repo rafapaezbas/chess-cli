@@ -118,11 +118,11 @@ test('bad commitment', async t => {
 })
 
 test.solo('2-of-2 game', async t => {
-  const a = keyPair()
-  const b = keyPair()
+  const createTestnet = require('@hyperswarm/testnet')
+  const { bootstrap } = await createTestnet(3)
 
-  const white = new HyperChess(a, b.publicKey)
-  const black = new HyperChess(b, a.publicKey)
+  const white = new HyperChess({ bootstrap })
+  const black = new HyperChess({ bootstrap })
 
   await white.joinGame(black.local.publicKey, black.channelKey.publicKey)
   await black.joinGame(white.local.publicKey, white.channelKey.publicKey)
@@ -132,6 +132,26 @@ test.solo('2-of-2 game', async t => {
 
   const e4 = { src: 12, dst: 28 }
   const e5 = { src: 52, dst: 36 }
+  const qh5 = { src: 3, dst: 39 }
+  const nc6 = { src: 57, dst: 42 }
 
-  white.move(e4)
+  await waitAndMove(white, e4)
+  await waitAndMove(black, e5)
+  await waitAndMove(white, qh5)
+  await waitAndMove(black, nc6)
+
+  await wait(1000)
+
+  const finalPosition = 'r1bqkbnr/pppp1ppp/2n5/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 2 3'
+  t.is(white.chess.getPosition(true), finalPosition)
+  t.is(black.chess.getPosition(true), finalPosition)
 })
+
+async function waitAndMove (player, move) {
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  player.move(move)
+}
+
+function wait (time) {
+  return new Promise((resolve) => setTimeout(resolve, time))
+}
