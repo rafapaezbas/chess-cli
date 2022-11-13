@@ -152,28 +152,10 @@ class HyperChess extends EventEmitter {
 
   move (move) {
     if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal local move')
-
     this.batch = this.chess.batch()
-
-    const newPosition = this.batch.move(move)
-    // const signature = this.state.commit(newPosition)
-
+    this.batch.move(move)
     this.channel.append(move)
     return move
-  }
-
-  async confirmMove (move) {
-    if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal remote move')
-
-    const update = chessRules.moveToPgn({ ...this.chess.position }, move)
-    const newPosition = this.chess.move(move)
-
-    // const commit = this.state.verify(this.pending, signature)
-
-    this.batch = null
-
-    this.emit('update', update)
-    // return commit
   }
 
   async processBatch (blocks = []) {
@@ -183,7 +165,7 @@ class HyperChess extends EventEmitter {
       const { commitment, op } = blocks[i]
 
       if (op) {
-        if (!batch.moveIsLegal(op)) throw new Error('Ilegal local move')
+        if (!batch.moveIsLegal(op)) throw new Error('Ilegal move')
         const position = batch.move(op)
         const commitment = this.state.commit(position)
         this.chess.position = batch.getPosition()
@@ -193,12 +175,7 @@ class HyperChess extends EventEmitter {
 
       if (commitment && !this.channel.local.key.equals(blocks[i].core.key)) {
         const position = batch.getPosition(true)
-        if (position === this.chess.getPosition(true)) continue
-
-        const comm = await this.state.verify(position, Buffer.from(commitment))
-        this.chess.position = batch.getPosition()
-
-        await this.channel.append(null, nextCommitment)
+        await this.state.verify(position, Buffer.from(commitment))
       }
     }
   }
