@@ -120,6 +120,7 @@ class HyperChess extends EventEmitter {
     })
 
     this.firstToPlay = false
+    this.turn = false
     this.batch = null
   }
 
@@ -148,6 +149,7 @@ class HyperChess extends EventEmitter {
     await this.swarm.flush()
 
     this.firstToPlay = this.channel.isInitiator
+    this.turn = this.firstToPlay
   }
 
   move (move) {
@@ -163,17 +165,19 @@ class HyperChess extends EventEmitter {
 
     for (let i = 0; i < blocks.length; i++) {
       const { commitment, op } = blocks[i]
+      const isLocal = this.channel.local.key.equals(blocks[i].core.key)
 
       if (op) {
-        if (!batch.moveIsLegal(op)) throw new Error('Ilegal move')
+        if (!batch.moveIsLegal(op) || (!isLocal && this.turn)) throw new Error('Ilegal move')
         const position = batch.move(op)
         const commitment = this.state.commit(position)
         this.chess.position = batch.getPosition()
 
         await this.channel.append(null, commitment)
+        this.turn = !this.turn
       }
 
-      if (commitment && !this.channel.local.key.equals(blocks[i].core.key)) {
+      if (commitment && !isLocal) {
         const position = batch.getPosition(true)
         await this.state.verify(position, Buffer.from(commitment))
       }
