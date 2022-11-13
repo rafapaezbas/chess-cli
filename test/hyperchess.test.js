@@ -121,11 +121,14 @@ test.solo('2-of-2 game', async t => {
   const createTestnet = require('@hyperswarm/testnet')
   const { bootstrap } = await createTestnet(3)
 
-  const white = new HyperChess({ bootstrap })
-  const black = new HyperChess({ bootstrap })
+  const a = new HyperChess({ bootstrap })
+  const b = new HyperChess({ bootstrap })
 
-  await white.joinGame(black.local.publicKey, black.channelKey.publicKey)
-  await black.joinGame(white.local.publicKey, white.channelKey.publicKey)
+  await a.joinGame(b.local.publicKey, b.channelKey.publicKey)
+  await b.joinGame(a.local.publicKey, a.channelKey.publicKey)
+
+  const white = a.firstToPlay ? a : b
+  const black = a.firstToPlay ? b : a
 
   await white.ready()
   await black.ready()
@@ -145,6 +148,12 @@ test.solo('2-of-2 game', async t => {
   const finalPosition = 'r1bqkbnr/pppp1ppp/2n5/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 2 3'
   t.is(white.chess.getPosition(true), finalPosition)
   t.is(black.chess.getPosition(true), finalPosition)
+
+  t.is(white.state.core.length, 4)
+  t.is(black.state.core.length, 4)
+
+  t.is(await white.state.core.get(3), finalPosition)
+  t.is(await black.state.core.get(3), finalPosition)
 })
 
 async function waitAndMove (player, move) {
