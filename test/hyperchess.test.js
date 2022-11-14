@@ -1,3 +1,4 @@
+const { once } = require('events')
 const test = require('brittle')
 const { HyperChess } = require('../chess.js')
 const { keyPair } = require('hypercore-crypto')
@@ -76,3 +77,109 @@ test('scholars mate', async t => {
   t.is(black.state.core.length, white.state.core.length)
   t.is(black.state.core.length, 7)
 })
+
+test('process batch', async t => {
+  const a = keyPair()
+  const b = keyPair()
+
+  const white = new HyperChess(a, b.publicKey)
+  const black = new HyperChess(b, a.publicKey)
+
+  await white.joinGame(black.local.publicKey, black.channelKey.publicKey)
+  await black.joinGame(white.local.publicKey, white.channelKey.publicKey)
+
+  await white.ready()
+  await black.ready()
+
+  const initialPosition = black.getPosition(true)
+  const blocks = [{ op: { src: 12, dst: 28 } }, { op: { src: 52, dst: 36 } }]
+
+  const commitment = await white.processBatch(blocks)
+  blocks.push({ commitment })
+
+  await black.processBatch(blocks)
+  t.not(black.getPosition(true), initialPosition)
+})
+
+test('bad commitment', async t => {
+  const a = keyPair()
+  const b = keyPair()
+
+  const white = new HyperChess(a, b.publicKey)
+  const black = new HyperChess(b, a.publicKey)
+
+  await white.joinGame(black.local.publicKey, black.channelKey.publicKey)
+  await black.joinGame(white.local.publicKey, white.channelKey.publicKey)
+
+  await white.ready()
+  await black.ready()
+
+  const blocks = [{ op: { src: 12, dst: 28 } }, { op: { src: 52, dst: 36 } }, { commitment: Buffer.alloc(64) }]
+  await t.exception(async () => await white.processBatch(blocks))
+})
+
+test.solo('2-of-2 game', async t => {
+  const createTestnet = require('@hyperswarm/testnet')
+  const { bootstrap } = await createTestnet(3)
+
+  const a = new HyperChess({ bootstrap })
+  const b = new HyperChess({ bootstrap })
+
+  await a.joinGame(b.local.publicKey, b.channelKey.publicKey)
+  await b.joinGame(a.local.publicKey, a.channelKey.publicKey)
+
+  const white = a.firstToPlay ? a : b
+  const black = a.firstToPlay ? b : a
+
+  await white.ready()
+  await black.ready()
+
+  const e4 = { src: 12, dst: 28 }
+  const e5 = { src: 52, dst: 36 }
+  const qh5 = { src: 3, dst: 39 }
+  const nc6 = { src: 57, dst: 42 }
+
+  await white.move(e4)
+  await Promise.all([
+    // once(white, 'update'),
+    once(black, 'update'),
+  ])
+
+  console.log('white position', white.chess.getPosition(true))
+  console.log('black position', black.chess.getPosition(true))
+  await black.move(e5)
+  await once(white, 'update')
+
+  await white.move(qh5)
+  await once(black, 'update')
+
+  await black.move(nc6)
+  await once(white, 'update')
+
+  await white.commit() // Bc4 Nf6??
+  await once(black, 'update')
+
+  const finalPosition = 'r1bqkbnr/pppp1ppp/2n5/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 2 3'
+  t.is(white.chess.getPosition(true), finalPosition)
+  t.is(black.chess.getPosition(true), finalPosition)
+
+  t.is(white.state.core.length, 2)
+  t.is(black.state.core.length, 2)
+
+  t.is(await white.state.core.get(3), finalPosition)
+  t.is(await black.state.core.get(3), finalPosition)
+})
+
+async function waitAndMove (player, move) {
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  player.move(move)
+}
+
+function wait (time) {
+  return new Promise((resolve) => setTimeout(resolve, time))
+}
+
+function replicate (a, b) {
+  const as = a.replicate(true)
+  as.pipe(b.replicate()).pipe(as)
+}

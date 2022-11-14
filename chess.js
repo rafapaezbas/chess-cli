@@ -89,14 +89,14 @@ class State {
   async verify (data, signature) {
     const signable = this.signable(data)
 
-    if (!crypto.verify(signable, signature, this.remote)) {
-      throw new Error('Bad commit')
-    }
-
+    if (!crypto.verify(signable, signature, this.remote)) return false
     this.auth.addSignature(signature)
-    await this.core.append(data)
 
-    return crypto.sign(signable, this.local.secretKey)
+    return true
+  }
+
+  async append (data) {
+    await this.core.append(data)
   }
 }
 
@@ -120,6 +120,7 @@ class HyperChess extends EventEmitter {
     })
 
     this.firstToPlay = false
+    this.turn = false
     this.batch = null
   }
 
@@ -140,39 +141,76 @@ class HyperChess extends EventEmitter {
     await local.ready()
     await remote.ready()
 
-    this.channel = new Autochannel(local, remote)
-    this.channel.on('data', move => this.confirmMove(move))
+    this.channel = new Autochannel(local, remote, { onBatch: this.processBatch.bind(this) })
+    this.channel.on('data', () => {})
 
     this.swarm.join(local.discoveryKey)
     this.swarm.join(remote.discoveryKey)
+    await this.swarm.flush()
 
     this.firstToPlay = this.channel.isInitiator
+    this.turn = this.firstToPlay
   }
 
-  move (move) {
+  async move (move) {
     if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal local move')
-
     this.batch = this.chess.batch()
+    this.batch.move(move)
 
-    const newPosition = this.batch.move(move)
-    // const signature = this.state.commit(newPosition)
+    const board = this.channel.isInitiator ? this.batch : this.chess
+    const position = board.getPosition(true)
+    const commitment = this.state.commit(position)
 
-    this.channel.append(move)
-    return move
+    await this.channel.append(move, commitment)
+
+    if (this.channel.isInitiator) return move
+
+    // responder should only append now
+    return this.state.append(position)
   }
 
-  async confirmMove (move) {
-    if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal remote move')
+  commit () {
+    const commitment = this.state.commit(this.chess.getPosition(true))
+    return this.channel.append(null, commitment)
+  }
 
-    const update = chessRules.moveToPgn({ ...this.chess.position }, move)
-    const newPosition = this.chess.move(move)
+  async processBatch (blocks = []) {
+    const self = this
 
-    // const commit = this.state.verify(this.pending, signature)
+    for (let i = 0; i < blocks.length; i++) {
+      const { commitment, op } = blocks[i]
 
-    this.batch = null
+      const isLocal = blocks[i].core.writable
+      const isInitiator = this.channel.isInitiator
+      
+      const prev = this.chess.getPosition(true)
 
-    this.emit('update', update)
-    // return commit
+      await checkOp(op)
+
+      // don't handle local commitments
+      if (isLocal) continue
+
+      const next = this.chess.getPosition(true)
+      await checkCommitment(commitment, isInitiator ? prev : next)
+
+      this.emit('update')
+
+      async function checkCommitment (commitment, position) {
+        if (!commitment) return
+
+        if (!await self.state.verify(position, Buffer.from(commitment))) {
+          throw new Error('Bad commit')
+        }
+
+        // initiator can append now
+        if (isInitiator) return self.state.append(position)
+      }
+
+      async function checkOp (op) {
+        if (!op) return
+        self.chess.move(op)
+      }
+    }
   }
 }
 
