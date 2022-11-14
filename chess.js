@@ -89,14 +89,14 @@ class State {
   async verify (data, signature) {
     const signable = this.signable(data)
 
-    if (!crypto.verify(signable, signature, this.remote)) {
-      throw new Error('Bad commit')
-    }
-
+    if (!crypto.verify(signable, signature, this.remote)) return false
     this.auth.addSignature(signature)
-    await this.core.append(data)
 
-    return crypto.sign(signable, this.local.secretKey)
+    return true
+  }
+
+  async append (data) {
+    await this.core.append(data)
   }
 }
 
@@ -152,34 +152,63 @@ class HyperChess extends EventEmitter {
     this.turn = this.firstToPlay
   }
 
-  move (move) {
+  async move (move) {
     if (!this.chess.moveIsLegal(move)) throw new Error('Ilegal local move')
     this.batch = this.chess.batch()
     this.batch.move(move)
-    this.channel.append(move)
-    return move
+
+    const board = this.channel.isInitiator ? this.batch : this.chess
+    const position = board.getPosition(true)
+    const commitment = this.state.commit(position)
+
+    await this.channel.append(move, commitment)
+
+    if (this.channel.isInitiator) return move
+
+    // responder should only append now
+    return this.state.append(position)
+  }
+
+  commit () {
+    const commitment = this.state.commit(this.chess.getPosition(true))
+    return this.channel.append(null, commitment)
   }
 
   async processBatch (blocks = []) {
-    const batch = this.chess.batch()
+    const self = this
 
     for (let i = 0; i < blocks.length; i++) {
       const { commitment, op } = blocks[i]
-      const isLocal = this.channel.local.key.equals(blocks[i].core.key)
 
-      if (op) {
-        if (!batch.moveIsLegal(op) || (!isLocal && this.turn)) throw new Error('Ilegal move')
-        const position = batch.move(op)
-        const commitment = this.state.commit(position)
-        this.chess.position = batch.getPosition()
+      const isLocal = blocks[i].core.writable
+      const isInitiator = this.channel.isInitiator
+      
+      const prev = this.chess.getPosition(true)
 
-        await this.channel.append(null, commitment)
-        this.turn = !this.turn
+      await checkOp(op)
+
+      // don't handle local commitments
+      if (isLocal) continue
+
+      const next = this.chess.getPosition(true)
+      await checkCommitment(commitment, isInitiator ? prev : next)
+
+      this.emit('update')
+
+      async function checkCommitment (commitment, position) {
+        if (!commitment) return
+
+        if (!await self.state.verify(position, Buffer.from(commitment))) {
+          throw new Error('Bad commit')
+        }
+
+        // initiator can append now
+        if (isInitiator) return self.state.append(position)
       }
 
-      if (commitment && !isLocal) {
-        const position = batch.getPosition(true)
-        await this.state.verify(position, Buffer.from(commitment))
+      async function checkOp (op) {
+        if (!op) return
+        self.chess.move(op)
       }
     }
   }

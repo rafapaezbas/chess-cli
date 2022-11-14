@@ -1,3 +1,4 @@
+const { once } = require('events')
 const test = require('brittle')
 const { HyperChess } = require('../chess.js')
 const { keyPair } = require('hypercore-crypto')
@@ -138,19 +139,32 @@ test.solo('2-of-2 game', async t => {
   const qh5 = { src: 3, dst: 39 }
   const nc6 = { src: 57, dst: 42 }
 
-  await waitAndMove(white, e4)
-  await waitAndMove(black, e5)
-  await waitAndMove(white, qh5)
-  await waitAndMove(black, nc6)
+  await white.move(e4)
+  await Promise.all([
+    // once(white, 'update'),
+    once(black, 'update'),
+  ])
 
-  await wait(1000)
+  console.log('white position', white.chess.getPosition(true))
+  console.log('black position', black.chess.getPosition(true))
+  await black.move(e5)
+  await once(white, 'update')
+
+  await white.move(qh5)
+  await once(black, 'update')
+
+  await black.move(nc6)
+  await once(white, 'update')
+
+  await white.commit() // Bc4 Nf6??
+  await once(black, 'update')
 
   const finalPosition = 'r1bqkbnr/pppp1ppp/2n5/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 2 3'
   t.is(white.chess.getPosition(true), finalPosition)
   t.is(black.chess.getPosition(true), finalPosition)
 
-  t.is(white.state.core.length, 4)
-  t.is(black.state.core.length, 4)
+  t.is(white.state.core.length, 2)
+  t.is(black.state.core.length, 2)
 
   t.is(await white.state.core.get(3), finalPosition)
   t.is(await black.state.core.get(3), finalPosition)
@@ -163,4 +177,9 @@ async function waitAndMove (player, move) {
 
 function wait (time) {
   return new Promise((resolve) => setTimeout(resolve, time))
+}
+
+function replicate (a, b) {
+  const as = a.replicate(true)
+  as.pipe(b.replicate()).pipe(as)
 }
